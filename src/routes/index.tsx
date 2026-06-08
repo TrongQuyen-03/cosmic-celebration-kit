@@ -464,6 +464,32 @@ function Fireworks() {
       ctx.closePath();
       ctx.fill();
 
+      // ===== Smoke (volumetric, drawn in source-over for soft body) =====
+      for (let i = smokes.length - 1; i >= 0; i--) {
+        const s = smokes[i];
+        s.life += dt / 16;
+        s.x += s.vx * (dt / 16);
+        s.y += s.vy * (dt / 16);
+        s.vx *= 0.985;
+        s.vy = s.vy * 0.985 - 0.008; // gentle rise
+        s.rot += s.vr * (dt / 16);
+        const tt = s.life / s.maxLife;
+        if (tt >= 1) { smokes.splice(i, 1); continue; }
+        const radius = s.r * (0.6 + tt * 1.6);
+        // fade in then out
+        const fade = tt < 0.15 ? tt / 0.15 : 1 - (tt - 0.15) / 0.85;
+        const alpha = Math.max(0, fade) * 0.18;
+        const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, radius);
+        // tinted with shell hue, mostly neutral gray
+        g.addColorStop(0, `hsla(${s.hue}, 25%, 75%, ${alpha})`);
+        g.addColorStop(0.5, `hsla(${s.hue}, 15%, 45%, ${alpha * 0.5})`);
+        g.addColorStop(1, `hsla(${s.hue}, 10%, 20%, 0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.globalCompositeOperation = "lighter";
 
       // Auto launch
