@@ -62,8 +62,11 @@ function Fireworks() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [auto, setAuto] = useState(true);
   const [finale, setFinale] = useState(false);
+  const [muted, setMuted] = useState(false);
   const autoRef = useRef(auto);
   const finaleRef = useRef(finale);
+  const mutedRef = useRef(muted);
+  useEffect(() => { mutedRef.current = muted; }, [muted]);
   useEffect(() => { autoRef.current = auto; }, [auto]);
   useEffect(() => { finaleRef.current = finale; }, [finale]);
 
