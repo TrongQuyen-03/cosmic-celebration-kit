@@ -26,9 +26,31 @@ type Rocket = {
   targetY: number; hue: number; type: ShellType;
 };
 
-type ShellType = "peony" | "chrysanthemum" | "willow" | "ring" | "crossette" | "palm" | "strobe";
+type ShellType =
+  | "peony" | "chrysanthemum" | "willow" | "ring" | "crossette"
+  | "palm" | "strobe" | "heart" | "spider" | "doubleRing"
+  | "pistil" | "rainbow" | "horsetail" | "kamuro" | "brocade";
 
-const SHELL_TYPES: ShellType[] = ["peony", "chrysanthemum", "willow", "ring", "crossette", "palm", "strobe"];
+const SHELL_TYPES: ShellType[] = [
+  "peony", "chrysanthemum", "willow", "ring", "crossette",
+  "palm", "strobe", "heart", "spider", "doubleRing",
+  "pistil", "rainbow", "horsetail", "kamuro", "brocade",
+];
+
+// Vibrant palettes — picked per shell for multi-color bursts
+const PALETTES: number[][] = [
+  [0, 30, 50],          // fire: red/orange/gold
+  [200, 230, 280],      // ocean: cyan/blue/violet
+  [120, 160, 60],       // emerald/lime/gold
+  [320, 340, 20],       // rose/magenta/coral
+  [270, 300, 200],      // purple/pink/cyan
+  [50, 180, 320],       // gold/teal/magenta (tricolor)
+  [0, 120, 240],        // RGB primary
+  [15, 45, 350],        // sunset
+  [180, 210, 330],      // aurora
+  [60, 90, 150],        // chartreuse/mint/sea
+];
+const pickPalette = () => PALETTES[Math.floor(Math.random() * PALETTES.length)];
 
 function Fireworks() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
