@@ -85,11 +85,105 @@ function Fireworks() {
     window.addEventListener("resize", resize);
 
     const particles: Particle[] = [];
+    const smokes: Smoke[] = [];
     const rockets: Rocket[] = [];
     const stars: { x: number; y: number; r: number; tw: number }[] = [];
     for (let i = 0; i < 140; i++) {
       stars.push({ x: Math.random(), y: Math.random() * 0.7, r: Math.random() * 1.2 + 0.2, tw: Math.random() * Math.PI * 2 });
     }
+
+    // ===== Audio (synthesized firework sounds via WebAudio) =====
+    let actx: AudioContext | null = null;
+    let masterGain: GainNode | null = null;
+    let noiseBuffer: AudioBuffer | null = null;
+
+    const ensureAudio = () => {
+      if (actx) return actx;
+      const Ctx = (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+      if (!Ctx) return null;
+      actx = new Ctx();
+      masterGain = actx.createGain();
+      masterGain.gain.value = 0.6;
+      masterGain.connect(actx.destination);
+      // Pre-render 2s of white noise
+      const len = actx.sampleRate * 2;
+      noiseBuffer = actx.createBuffer(1, len, actx.sampleRate);
+      const ch = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+      return actx;
+    };
+
+    const playLaunchSound = (pan = 0) => {
+      if (mutedRef.current) return;
+      const ac = ensureAudio();
+      if (!ac || !masterGain) return;
+      const t = ac.currentTime;
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      const panner = ac.createStereoPanner();
+      panner.pan.value = pan;
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(1400, t);
+      osc.frequency.exponentialRampToValueAtTime(280, t + 0.9);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.08, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+      osc.connect(g).connect(panner).connect(masterGain);
+      osc.start(t);
+      osc.stop(t + 1);
+    };
+
+    const playBoomSound = (intensity = 1, pan = 0) => {
+      if (mutedRef.current) return;
+      const ac = ensureAudio();
+      if (!ac || !masterGain || !noiseBuffer) return;
+      const t = ac.currentTime;
+      const panner = ac.createStereoPanner();
+      panner.pan.value = pan;
+      panner.connect(masterGain);
+
+      // Low boom: filtered noise + sine sub
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuffer;
+      const lp = ac.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(380, t);
+      lp.frequency.exponentialRampToValueAtTime(80, t + 0.7);
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.9 * intensity, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+      src.connect(lp).connect(g).connect(panner);
+      src.start(t);
+      src.stop(t + 1);
+
+      // Sub thump
+      const sub = ac.createOscillator();
+      sub.type = "sine";
+      sub.frequency.setValueAtTime(90, t);
+      sub.frequency.exponentialRampToValueAtTime(40, t + 0.4);
+      const sg = ac.createGain();
+      sg.gain.setValueAtTime(0.0001, t);
+      sg.gain.exponentialRampToValueAtTime(0.5 * intensity, t + 0.02);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      sub.connect(sg).connect(panner);
+      sub.start(t);
+      sub.stop(t + 0.6);
+
+      // Crackle tail
+      const crack = ac.createBufferSource();
+      crack.buffer = noiseBuffer;
+      const hp = ac.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 2000;
+      const cg = ac.createGain();
+      cg.gain.setValueAtTime(0.0001, t + 0.15);
+      cg.gain.exponentialRampToValueAtTime(0.15 * intensity, t + 0.2);
+      cg.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+      crack.connect(hp).connect(cg).connect(panner);
+      crack.start(t + 0.15);
+      crack.stop(t + 1.3);
+    };
 
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
