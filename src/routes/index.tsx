@@ -621,6 +621,12 @@ function Fireworks() {
           {auto ? "Tạm dừng tự động" : "Bật tự động"}
         </button>
         <button
+          onClick={() => setMuted(m => !m)}
+          className="rounded-full border border-white/20 bg-white/5 px-5 py-2 text-xs tracking-widest uppercase text-white/80 backdrop-blur-md transition hover:bg-white/10 hover:border-white/40"
+        >
+          {muted ? "♪ Bật âm" : "♪ Tắt âm"}
+        </button>
+        <button
           onClick={() => setFinale(true)}
           className="rounded-full border border-amber-300/40 bg-gradient-to-r from-amber-500/20 to-rose-500/20 px-5 py-2 text-xs tracking-widest uppercase text-amber-100 backdrop-blur-md transition hover:from-amber-500/30 hover:to-rose-500/30"
         >
