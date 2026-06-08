@@ -21,6 +21,12 @@ type Particle = {
   shimmer: boolean; drag: number;
 };
 
+type Smoke = {
+  x: number; y: number; vx: number; vy: number;
+  life: number; maxLife: number; r: number; rot: number; vr: number;
+  hue: number;
+};
+
 type Rocket = {
   x: number; y: number; vx: number; vy: number;
   targetY: number; hue: number; type: ShellType; palette: number[];
@@ -56,8 +62,11 @@ function Fireworks() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [auto, setAuto] = useState(true);
   const [finale, setFinale] = useState(false);
+  const [muted, setMuted] = useState(false);
   const autoRef = useRef(auto);
   const finaleRef = useRef(finale);
+  const mutedRef = useRef(muted);
+  useEffect(() => { mutedRef.current = muted; }, [muted]);
   useEffect(() => { autoRef.current = auto; }, [auto]);
   useEffect(() => { finaleRef.current = finale; }, [finale]);
 
@@ -76,11 +85,105 @@ function Fireworks() {
     window.addEventListener("resize", resize);
 
     const particles: Particle[] = [];
+    const smokes: Smoke[] = [];
     const rockets: Rocket[] = [];
     const stars: { x: number; y: number; r: number; tw: number }[] = [];
     for (let i = 0; i < 140; i++) {
       stars.push({ x: Math.random(), y: Math.random() * 0.7, r: Math.random() * 1.2 + 0.2, tw: Math.random() * Math.PI * 2 });
     }
+
+    // ===== Audio (synthesized firework sounds via WebAudio) =====
+    let actx: AudioContext | null = null;
+    let masterGain: GainNode | null = null;
+    let noiseBuffer: AudioBuffer | null = null;
+
+    const ensureAudio = () => {
+      if (actx) return actx;
+      const Ctx = (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
+      if (!Ctx) return null;
+      actx = new Ctx();
+      masterGain = actx.createGain();
+      masterGain.gain.value = 0.6;
+      masterGain.connect(actx.destination);
+      // Pre-render 2s of white noise
+      const len = actx.sampleRate * 2;
+      noiseBuffer = actx.createBuffer(1, len, actx.sampleRate);
+      const ch = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+      return actx;
+    };
+
+    const playLaunchSound = (pan = 0) => {
+      if (mutedRef.current) return;
+      const ac = ensureAudio();
+      if (!ac || !masterGain) return;
+      const t = ac.currentTime;
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      const panner = ac.createStereoPanner();
+      panner.pan.value = pan;
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(1400, t);
+      osc.frequency.exponentialRampToValueAtTime(280, t + 0.9);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.08, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+      osc.connect(g).connect(panner).connect(masterGain);
+      osc.start(t);
+      osc.stop(t + 1);
+    };
+
+    const playBoomSound = (intensity = 1, pan = 0) => {
+      if (mutedRef.current) return;
+      const ac = ensureAudio();
+      if (!ac || !masterGain || !noiseBuffer) return;
+      const t = ac.currentTime;
+      const panner = ac.createStereoPanner();
+      panner.pan.value = pan;
+      panner.connect(masterGain);
+
+      // Low boom: filtered noise + sine sub
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuffer;
+      const lp = ac.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(380, t);
+      lp.frequency.exponentialRampToValueAtTime(80, t + 0.7);
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.9 * intensity, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+      src.connect(lp).connect(g).connect(panner);
+      src.start(t);
+      src.stop(t + 1);
+
+      // Sub thump
+      const sub = ac.createOscillator();
+      sub.type = "sine";
+      sub.frequency.setValueAtTime(90, t);
+      sub.frequency.exponentialRampToValueAtTime(40, t + 0.4);
+      const sg = ac.createGain();
+      sg.gain.setValueAtTime(0.0001, t);
+      sg.gain.exponentialRampToValueAtTime(0.5 * intensity, t + 0.02);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      sub.connect(sg).connect(panner);
+      sub.start(t);
+      sub.stop(t + 0.6);
+
+      // Crackle tail
+      const crack = ac.createBufferSource();
+      crack.buffer = noiseBuffer;
+      const hp = ac.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 2000;
+      const cg = ac.createGain();
+      cg.gain.setValueAtTime(0.0001, t + 0.15);
+      cg.gain.exponentialRampToValueAtTime(0.15 * intensity, t + 0.2);
+      cg.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+      crack.connect(hp).connect(cg).connect(panner);
+      crack.start(t + 0.15);
+      crack.stop(t + 1.3);
+    };
 
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -97,12 +200,37 @@ function Fireworks() {
         type: type ?? SHELL_TYPES[Math.floor(Math.random() * SHELL_TYPES.length)],
         palette: palette ?? pickPalette(),
       });
+      const launchX = sx;
+      playLaunchSound(W > 0 ? (launchX / W) * 2 - 1 : 0);
     };
 
     const pushParticle = (p: Particle) => particles.push(p);
 
     const burst = (x: number, y: number, palette: number[], type: ShellType) => {
       const pick = () => palette[Math.floor(Math.random() * palette.length)];
+
+      // Audio: boom timed to flash
+      const pan = W > 0 ? (x / W) * 2 - 1 : 0;
+      const intensity = type === "kamuro" || type === "brocade" ? 1.1 : type === "strobe" || type === "ghost" ? 0.7 : 0.95;
+      playBoomSound(intensity, pan);
+
+      // Volumetric smoke puffs — gives bursts cinematic body
+      const smokeCount = type === "willow" || type === "kamuro" ? 18 : 12;
+      for (let i = 0; i < smokeCount; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = rand(0.3, 1.6);
+        smokes.push({
+          x, y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp - 0.2,
+          life: 0,
+          maxLife: rand(180, 280),
+          r: rand(28, 60),
+          rot: Math.random() * Math.PI * 2,
+          vr: rand(-0.01, 0.01),
+          hue: palette[0],
+        });
+      }
 
       // White-hot flash
       pushParticle({
@@ -336,6 +464,32 @@ function Fireworks() {
       ctx.closePath();
       ctx.fill();
 
+      // ===== Smoke (volumetric, drawn in source-over for soft body) =====
+      for (let i = smokes.length - 1; i >= 0; i--) {
+        const s = smokes[i];
+        s.life += dt / 16;
+        s.x += s.vx * (dt / 16);
+        s.y += s.vy * (dt / 16);
+        s.vx *= 0.985;
+        s.vy = s.vy * 0.985 - 0.008; // gentle rise
+        s.rot += s.vr * (dt / 16);
+        const tt = s.life / s.maxLife;
+        if (tt >= 1) { smokes.splice(i, 1); continue; }
+        const radius = s.r * (0.6 + tt * 1.6);
+        // fade in then out
+        const fade = tt < 0.15 ? tt / 0.15 : 1 - (tt - 0.15) / 0.85;
+        const alpha = Math.max(0, fade) * 0.18;
+        const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, radius);
+        // tinted with shell hue, mostly neutral gray
+        g.addColorStop(0, `hsla(${s.hue}, 25%, 75%, ${alpha})`);
+        g.addColorStop(0.5, `hsla(${s.hue}, 15%, 45%, ${alpha * 0.5})`);
+        g.addColorStop(1, `hsla(${s.hue}, 10%, 20%, 0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.globalCompositeOperation = "lighter";
 
       // Auto launch
@@ -465,6 +619,12 @@ function Fireworks() {
           className="rounded-full border border-white/20 bg-white/5 px-5 py-2 text-xs tracking-widest uppercase text-white/80 backdrop-blur-md transition hover:bg-white/10 hover:border-white/40"
         >
           {auto ? "Tạm dừng tự động" : "Bật tự động"}
+        </button>
+        <button
+          onClick={() => setMuted(m => !m)}
+          className="rounded-full border border-white/20 bg-white/5 px-5 py-2 text-xs tracking-widest uppercase text-white/80 backdrop-blur-md transition hover:bg-white/10 hover:border-white/40"
+        >
+          {muted ? "♪ Bật âm" : "♪ Tắt âm"}
         </button>
         <button
           onClick={() => setFinale(true)}
