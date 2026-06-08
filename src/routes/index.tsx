@@ -27,28 +27,28 @@ type Rocket = {
 };
 
 type ShellType =
-  | "peony" | "chrysanthemum" | "willow" | "ring" | "crossette"
-  | "palm" | "strobe" | "heart" | "spider" | "doubleRing"
-  | "pistil" | "rainbow" | "horsetail" | "kamuro" | "brocade";
+  | "peony" | "chrysanthemum" | "willow" | "ring" | "doubleRing"
+  | "crossette" | "palm" | "strobe" | "spider"
+  | "pistil" | "horsetail" | "kamuro" | "brocade" | "comet" | "ghost";
 
 const SHELL_TYPES: ShellType[] = [
-  "peony", "chrysanthemum", "willow", "ring", "crossette",
-  "palm", "strobe", "heart", "spider", "doubleRing",
-  "pistil", "rainbow", "horsetail", "kamuro", "brocade",
+  "peony", "chrysanthemum", "willow", "ring", "doubleRing",
+  "crossette", "palm", "strobe", "spider",
+  "pistil", "horsetail", "kamuro", "brocade", "comet", "ghost",
 ];
 
-// Vibrant palettes — picked per shell for multi-color bursts
+// Modern, editorial palettes — restrained, cinematic, monochromatic-leaning
 const PALETTES: number[][] = [
-  [0, 30, 50],          // fire: red/orange/gold
-  [200, 230, 280],      // ocean: cyan/blue/violet
-  [120, 160, 60],       // emerald/lime/gold
-  [320, 340, 20],       // rose/magenta/coral
-  [270, 300, 200],      // purple/pink/cyan
-  [50, 180, 320],       // gold/teal/magenta (tricolor)
-  [0, 120, 240],        // RGB primary
-  [15, 45, 350],        // sunset
-  [180, 210, 330],      // aurora
-  [60, 90, 150],        // chartreuse/mint/sea
+  [40, 35, 45],          // champagne / warm gold
+  [210, 215, 220],       // ice blue
+  [25, 15, 35],          // ember
+  [180, 190, 170],       // jade mist
+  [285, 295, 270],       // violet smoke
+  [200, 40, 30],         // platinum + ember accent
+  [220, 210, 50],        // arctic gold
+  [330, 320, 0],         // rose noir
+  [160, 180, 40],        // pistachio gold
+  [0, 0, 50],            // pure white + gold
 ];
 const pickPalette = () => PALETTES[Math.floor(Math.random() * PALETTES.length)];
 
@@ -214,15 +214,24 @@ function Fireworks() {
           }
           break;
         }
-        case "heart": {
-          const N = 140;
-          for (let i = 0; i < N; i++) {
-            const t = (i / N) * Math.PI * 2;
-            const hx = 16 * Math.pow(Math.sin(t), 3);
-            const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-            const k = 0.32;
-            pushParticle(baseParticle(hx * k, hy * k, {
-              hue: palette[0], lum: 65, maxLife: rand(90, 130), trail: true,
+        case "comet": {
+          // single arcing comet that leaves a long trail
+          for (let i = 0; i < 8; i++) {
+            const a = rand(0, Math.PI * 2);
+            const s = rand(6, 9);
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              trail: true, gravity: 0.04, drag: 0.985, maxLife: rand(140, 200), size: 2.6,
+            }));
+          }
+          break;
+        }
+        case "ghost": {
+          // delayed color shift: monochrome then bloom
+          for (let i = 0; i < 160; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 4.5 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              sat: 0, lum: 90, maxLife: rand(110, 150), trail: true,
             }));
           }
           break;
@@ -253,13 +262,14 @@ function Fireworks() {
           }
           break;
         }
-        case "rainbow": {
-          const hues = [0, 30, 60, 120, 200, 260, 300];
-          for (let i = 0; i < 210; i++) {
+        case "kamuro": {
+          // already defined below — keep duplicate guard out
+          for (let i = 0; i < 200; i++) {
             const a = Math.random() * Math.PI * 2;
-            const s = 5 * Math.sqrt(Math.random());
+            const s = 4 * Math.sqrt(Math.random());
             pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
-              hue: hues[i % hues.length], lum: 60, trail: true, maxLife: rand(100, 140),
+              hue: 40, sat: 90, lum: 75, trail: true,
+              gravity: 0.07, drag: 0.99, maxLife: rand(200, 260), size: 1.8,
             }));
           }
           break;
@@ -270,17 +280,6 @@ function Fireworks() {
             const s = rand(3, 7);
             pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
               trail: true, gravity: 0.06, maxLife: rand(130, 180),
-            }));
-          }
-          break;
-        }
-        case "kamuro": {
-          for (let i = 0; i < 180; i++) {
-            const a = Math.random() * Math.PI * 2;
-            const s = 4 * Math.sqrt(Math.random());
-            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
-              hue: 40, sat: 100, lum: 70, trail: true,
-              gravity: 0.07, drag: 0.99, maxLife: rand(180, 240), size: 1.8,
             }));
           }
           break;
