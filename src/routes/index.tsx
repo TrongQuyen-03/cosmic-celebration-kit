@@ -200,12 +200,37 @@ function Fireworks() {
         type: type ?? SHELL_TYPES[Math.floor(Math.random() * SHELL_TYPES.length)],
         palette: palette ?? pickPalette(),
       });
+      const launchX = sx;
+      playLaunchSound(W > 0 ? (launchX / W) * 2 - 1 : 0);
     };
 
     const pushParticle = (p: Particle) => particles.push(p);
 
     const burst = (x: number, y: number, palette: number[], type: ShellType) => {
       const pick = () => palette[Math.floor(Math.random() * palette.length)];
+
+      // Audio: boom timed to flash
+      const pan = W > 0 ? (x / W) * 2 - 1 : 0;
+      const intensity = type === "kamuro" || type === "brocade" ? 1.1 : type === "strobe" || type === "ghost" ? 0.7 : 0.95;
+      playBoomSound(intensity, pan);
+
+      // Volumetric smoke puffs — gives bursts cinematic body
+      const smokeCount = type === "willow" || type === "kamuro" ? 18 : 12;
+      for (let i = 0; i < smokeCount; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = rand(0.3, 1.6);
+        smokes.push({
+          x, y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp - 0.2,
+          life: 0,
+          maxLife: rand(180, 280),
+          r: rand(28, 60),
+          rot: Math.random() * Math.PI * 2,
+          vr: rand(-0.01, 0.01),
+          hue: palette[0],
+        });
+      }
 
       // White-hot flash
       pushParticle({
