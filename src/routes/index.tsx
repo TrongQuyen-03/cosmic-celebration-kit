@@ -21,6 +21,12 @@ type Particle = {
   shimmer: boolean; drag: number;
 };
 
+type Smoke = {
+  x: number; y: number; vx: number; vy: number;
+  life: number; maxLife: number; r: number; rot: number; vr: number;
+  hue: number;
+};
+
 type Rocket = {
   x: number; y: number; vx: number; vy: number;
   targetY: number; hue: number; type: ShellType; palette: number[];
