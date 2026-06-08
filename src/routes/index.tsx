@@ -23,7 +23,7 @@ type Particle = {
 
 type Rocket = {
   x: number; y: number; vx: number; vy: number;
-  targetY: number; hue: number; type: ShellType;
+  targetY: number; hue: number; type: ShellType; palette: number[];
 };
 
 type ShellType =
@@ -376,7 +376,7 @@ function Fireworks() {
         ctx.fill();
 
         if (r.vy >= -0.5 || r.y <= r.targetY) {
-          burst(r.x, r.y, r.hue, r.type);
+          burst(r.x, r.y, r.palette, r.type);
           rockets.splice(i, 1);
         }
       }
