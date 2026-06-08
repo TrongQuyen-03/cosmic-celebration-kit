@@ -23,12 +23,34 @@ type Particle = {
 
 type Rocket = {
   x: number; y: number; vx: number; vy: number;
-  targetY: number; hue: number; type: ShellType;
+  targetY: number; hue: number; type: ShellType; palette: number[];
 };
 
-type ShellType = "peony" | "chrysanthemum" | "willow" | "ring" | "crossette" | "palm" | "strobe";
+type ShellType =
+  | "peony" | "chrysanthemum" | "willow" | "ring" | "crossette"
+  | "palm" | "strobe" | "heart" | "spider" | "doubleRing"
+  | "pistil" | "rainbow" | "horsetail" | "kamuro" | "brocade";
 
-const SHELL_TYPES: ShellType[] = ["peony", "chrysanthemum", "willow", "ring", "crossette", "palm", "strobe"];
+const SHELL_TYPES: ShellType[] = [
+  "peony", "chrysanthemum", "willow", "ring", "crossette",
+  "palm", "strobe", "heart", "spider", "doubleRing",
+  "pistil", "rainbow", "horsetail", "kamuro", "brocade",
+];
+
+// Vibrant palettes — picked per shell for multi-color bursts
+const PALETTES: number[][] = [
+  [0, 30, 50],          // fire: red/orange/gold
+  [200, 230, 280],      // ocean: cyan/blue/violet
+  [120, 160, 60],       // emerald/lime/gold
+  [320, 340, 20],       // rose/magenta/coral
+  [270, 300, 200],      // purple/pink/cyan
+  [50, 180, 320],       // gold/teal/magenta (tricolor)
+  [0, 120, 240],        // RGB primary
+  [15, 45, 350],        // sunset
+  [180, 210, 330],      // aurora
+  [60, 90, 150],        // chartreuse/mint/sea
+];
+const pickPalette = () => PALETTES[Math.floor(Math.random() * PALETTES.length)];
 
 function Fireworks() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,76 +84,216 @@ function Fireworks() {
 
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
-    const launch = (tx?: number, ty?: number, type?: ShellType, hue?: number) => {
-      const sx = tx ?? rand(W * 0.15, W * 0.85);
-      const sy = ty ?? rand(H * 0.1, H * 0.45);
+    const launch = (tx?: number, ty?: number, type?: ShellType, palette?: number[]) => {
+      const sx = tx ?? rand(W * 0.1, W * 0.9);
+      const sy = ty ?? rand(H * 0.08, H * 0.45);
       rockets.push({
         x: sx + rand(-30, 30),
         y: H + 10,
         vx: rand(-0.4, 0.4),
         vy: -Math.sqrt(2 * 0.12 * (H - sy)),
         targetY: sy,
-        hue: hue ?? Math.floor(rand(0, 360)),
+        hue: (palette ?? pickPalette())[0],
         type: type ?? SHELL_TYPES[Math.floor(Math.random() * SHELL_TYPES.length)],
+        palette: palette ?? pickPalette(),
       });
     };
 
-    const burst = (x: number, y: number, hue: number, type: ShellType) => {
-      const count = type === "willow" ? 140 : type === "ring" ? 80 : type === "palm" ? 60 : 180;
-      const baseSpeed =
-        type === "willow" ? 3 :
-        type === "palm" ? 6 :
-        type === "ring" ? 5 :
-        type === "chrysanthemum" ? 5.5 :
-        type === "strobe" ? 4 : 5;
+    const pushParticle = (p: Particle) => particles.push(p);
 
-      // Flash
-      particles.push({
-        x, y, vx: 0, vy: 0, life: 0, maxLife: 10,
-        hue, sat: 100, lum: 100, size: 80, trail: false, gravity: 0, shimmer: false, drag: 1,
+    const burst = (x: number, y: number, palette: number[], type: ShellType) => {
+      const pick = () => palette[Math.floor(Math.random() * palette.length)];
+
+      // White-hot flash
+      pushParticle({
+        x, y, vx: 0, vy: 0, life: 0, maxLife: 12,
+        hue: palette[0], sat: 100, lum: 100, size: 90, trail: false, gravity: 0, shimmer: false, drag: 1,
       });
 
-      for (let i = 0; i < count; i++) {
-        let vx: number, vy: number, speed: number;
-        const angle = (i / count) * Math.PI * 2 + rand(-0.02, 0.02);
+      const baseParticle = (vx: number, vy: number, opts: Partial<Particle> = {}) => ({
+        x, y, vx, vy,
+        life: 0,
+        maxLife: rand(70, 110),
+        hue: pick(),
+        sat: 100,
+        lum: rand(55, 75),
+        size: 2.2,
+        trail: false,
+        gravity: 0.035,
+        shimmer: false,
+        drag: 0.97,
+        ...opts,
+      } as Particle);
 
-        if (type === "ring") {
-          speed = baseSpeed + rand(-0.2, 0.2);
-          vx = Math.cos(angle) * speed;
-          vy = Math.sin(angle) * speed;
-        } else if (type === "palm") {
-          if (i > 12) continue;
-          const a = -Math.PI / 2 + rand(-0.6, 0.6);
-          speed = rand(5, 8);
-          vx = Math.cos(a) * speed;
-          vy = Math.sin(a) * speed;
-        } else {
-          speed = baseSpeed * Math.sqrt(Math.random());
-          vx = Math.cos(angle) * speed;
-          vy = Math.sin(angle) * speed;
+      switch (type) {
+        case "peony": {
+          for (let i = 0; i < 180; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 5 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s));
+          }
+          break;
         }
-
-        const isWillow = type === "willow";
-        const isStrobe = type === "strobe";
-        const isCross = type === "crossette";
-        const isChry = type === "chrysanthemum";
-
-        particles.push({
-          x, y, vx, vy,
-          life: 0,
-          maxLife: isWillow ? rand(140, 200) : isChry ? rand(110, 150) : rand(70, 110),
-          hue: hue + rand(-10, 10),
-          sat: 100,
-          lum: rand(55, 75),
-          size: isWillow ? 1.6 : 2.2,
-          trail: isChry || isWillow || type === "palm",
-          gravity: isWillow ? 0.05 : 0.035,
-          shimmer: isStrobe,
-          drag: isWillow ? 0.985 : 0.97,
-        });
-
-        if (isCross && i % 6 === 0) {
-          // schedule crossette split via marker (handled by life check below)
+        case "chrysanthemum": {
+          for (let i = 0; i < 200; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 5.5 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, { trail: true, maxLife: rand(110, 150) }));
+          }
+          break;
+        }
+        case "willow": {
+          for (let i = 0; i < 140; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 3 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              maxLife: rand(160, 220), gravity: 0.05, drag: 0.985, trail: true, size: 1.6,
+            }));
+          }
+          break;
+        }
+        case "ring": {
+          for (let i = 0; i < 90; i++) {
+            const a = (i / 90) * Math.PI * 2;
+            const s = 5 + rand(-0.15, 0.15);
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s));
+          }
+          break;
+        }
+        case "doubleRing": {
+          for (let i = 0; i < 70; i++) {
+            const a = (i / 70) * Math.PI * 2;
+            pushParticle(baseParticle(Math.cos(a) * 3.2, Math.sin(a) * 3.2, { hue: palette[0] }));
+            pushParticle(baseParticle(Math.cos(a) * 5.8, Math.sin(a) * 5.8, { hue: palette[1] ?? palette[0] }));
+          }
+          break;
+        }
+        case "crossette": {
+          for (let i = 0; i < 60; i++) {
+            const a = (i / 60) * Math.PI * 2;
+            const s = 4.5;
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              maxLife: 40, trail: true,
+              // mark to split via flag in size? Use shimmer=false; we re-burst inline below
+            }));
+          }
+          // schedule split
+          setTimeout(() => {
+            for (const p of particles) {
+              if (p.life > 0 && p.life < 5) continue;
+            }
+          }, 0);
+          // simpler: emit immediate secondary stars from same origin in 8 dirs
+          for (let j = 0; j < 8; j++) {
+            const a = (j / 8) * Math.PI * 2;
+            for (let k = 0; k < 12; k++) {
+              const aa = a + rand(-0.3, 0.3);
+              const s = rand(2, 4);
+              pushParticle(baseParticle(Math.cos(aa) * s * 1.8, Math.sin(aa) * s * 1.8, { maxLife: rand(50, 80) }));
+            }
+          }
+          break;
+        }
+        case "palm": {
+          for (let i = 0; i < 14; i++) {
+            const a = -Math.PI / 2 + rand(-0.55, 0.55);
+            const s = rand(5.5, 8.5);
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              trail: true, maxLife: rand(120, 170), gravity: 0.05,
+            }));
+          }
+          break;
+        }
+        case "strobe": {
+          for (let i = 0; i < 140; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 4 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              shimmer: true, maxLife: rand(120, 180), drag: 0.99,
+            }));
+          }
+          break;
+        }
+        case "heart": {
+          const N = 140;
+          for (let i = 0; i < N; i++) {
+            const t = (i / N) * Math.PI * 2;
+            const hx = 16 * Math.pow(Math.sin(t), 3);
+            const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+            const k = 0.32;
+            pushParticle(baseParticle(hx * k, hy * k, {
+              hue: palette[0], lum: 65, maxLife: rand(90, 130), trail: true,
+            }));
+          }
+          break;
+        }
+        case "spider": {
+          for (let i = 0; i < 60; i++) {
+            const a = (i / 60) * Math.PI * 2;
+            const s = 7;
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              drag: 0.995, gravity: 0.02, maxLife: rand(80, 110),
+            }));
+          }
+          break;
+        }
+        case "pistil": {
+          // outer chrysanthemum + inner contrasting core
+          for (let i = 0; i < 160; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 5 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, { trail: true, hue: palette[0] }));
+          }
+          for (let i = 0; i < 70; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 2.2 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              hue: palette[1] ?? (palette[0] + 180) % 360, lum: 70, maxLife: rand(60, 90),
+            }));
+          }
+          break;
+        }
+        case "rainbow": {
+          const hues = [0, 30, 60, 120, 200, 260, 300];
+          for (let i = 0; i < 210; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 5 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              hue: hues[i % hues.length], lum: 60, trail: true, maxLife: rand(100, 140),
+            }));
+          }
+          break;
+        }
+        case "horsetail": {
+          for (let i = 0; i < 80; i++) {
+            const a = Math.PI / 2 + rand(-0.5, 0.5);
+            const s = rand(3, 7);
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              trail: true, gravity: 0.06, maxLife: rand(130, 180),
+            }));
+          }
+          break;
+        }
+        case "kamuro": {
+          for (let i = 0; i < 180; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 4 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              hue: 40, sat: 100, lum: 70, trail: true,
+              gravity: 0.07, drag: 0.99, maxLife: rand(180, 240), size: 1.8,
+            }));
+          }
+          break;
+        }
+        case "brocade": {
+          for (let i = 0; i < 220; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const s = 5.5 * Math.sqrt(Math.random());
+            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
+              trail: true, gravity: 0.045, maxLife: rand(140, 200), shimmer: Math.random() < 0.3,
+            }));
+          }
+          break;
         }
       }
     };
@@ -214,7 +376,7 @@ function Fireworks() {
         ctx.fill();
 
         if (r.vy >= -0.5 || r.y <= r.targetY) {
-          burst(r.x, r.y, r.hue, r.type);
+          burst(r.x, r.y, r.palette, r.type);
           rockets.splice(i, 1);
         }
       }
