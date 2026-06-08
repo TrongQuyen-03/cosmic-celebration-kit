@@ -284,17 +284,6 @@ function Fireworks() {
           }
           break;
         }
-        case "kamuro": {
-          for (let i = 0; i < 180; i++) {
-            const a = Math.random() * Math.PI * 2;
-            const s = 4 * Math.sqrt(Math.random());
-            pushParticle(baseParticle(Math.cos(a) * s, Math.sin(a) * s, {
-              hue: 40, sat: 100, lum: 70, trail: true,
-              gravity: 0.07, drag: 0.99, maxLife: rand(180, 240), size: 1.8,
-            }));
-          }
-          break;
-        }
         case "brocade": {
           for (let i = 0; i < 220; i++) {
             const a = Math.random() * Math.PI * 2;
