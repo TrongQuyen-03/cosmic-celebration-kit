@@ -84,6 +84,8 @@ function Fireworks() {
   const autoRef = useRef(auto);
   const mutedRef = useRef(muted);
   const skyImgRef = useRef<HTMLImageElement | null>(null);
+  const salvoRef = useRef(0); // pending extra rockets to fire ASAP
+
 
   useEffect(() => { mutedRef.current = muted; }, [muted]);
   useEffect(() => { autoRef.current = auto; }, [auto]);
