@@ -530,6 +530,14 @@ function Fireworks() {
         autoTimer = rand(550, 1100);
       }
 
+      // Drain salvo queue (multi-shot button)
+      if (salvoRef.current > 0) {
+        const fireNow = Math.min(2, salvoRef.current);
+        for (let i = 0; i < fireNow; i++) launch();
+        salvoRef.current -= fireNow;
+      }
+
+
       for (let i = rockets.length - 1; i >= 0; i--) {
         const r = rockets[i];
         r.x += r.vx * (dt / 16);
