@@ -128,11 +128,14 @@ function Fireworks() {
       stars.push({ x: Math.random(), y: Math.random() * 0.7, r: Math.random() * 1.2 + 0.2, tw: Math.random() * Math.PI * 2 });
     }
 
-    // ===== Audio =====
+    // ===== Audio: real recorded firework samples =====
     let actx: AudioContext | null = null;
     let masterGain: GainNode | null = null;
-    let convolver: ConvolverNode | null = null;
-    let noiseBuffer: AudioBuffer | null = null;
+    const boomBuffers: AudioBuffer[] = [];
+    let whistleBuffer: AudioBuffer | null = null;
+
+    const BOOM_URLS = [boom1Asset.url, boom2Asset.url, boom3Asset.url];
+    const WHISTLE_URL = whistleAsset.url;
 
     const ensureAudio = () => {
       if (actx) return actx;
@@ -140,133 +143,55 @@ function Fireworks() {
       if (!Ctx) return null;
       actx = new Ctx();
       masterGain = actx.createGain();
-      masterGain.gain.value = 0.7;
+      masterGain.gain.value = 0.9;
       masterGain.connect(actx.destination);
 
-      // Simple synthetic reverb (impulse response)
-      const irLen = actx.sampleRate * 2.2;
-      const ir = actx.createBuffer(2, irLen, actx.sampleRate);
-      for (let c = 0; c < 2; c++) {
-        const d = ir.getChannelData(c);
-        for (let i = 0; i < irLen; i++) {
-          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / irLen, 2.5);
-        }
-      }
-      convolver = actx.createConvolver();
-      convolver.buffer = ir;
-      const wet = actx.createGain();
-      wet.gain.value = 0.35;
-      convolver.connect(wet).connect(masterGain);
-
-      const len = actx.sampleRate * 2;
-      noiseBuffer = actx.createBuffer(1, len, actx.sampleRate);
-      const ch = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+      // Load real samples
+      const load = async (url: string): Promise<AudioBuffer | null> => {
+        try {
+          const r = await fetch(url);
+          const ab = await r.arrayBuffer();
+          return await actx!.decodeAudioData(ab);
+        } catch { return null; }
+      };
+      Promise.all(BOOM_URLS.map(load)).then(bufs => {
+        bufs.forEach(b => { if (b) boomBuffers.push(b); });
+      });
+      load(WHISTLE_URL).then(b => { whistleBuffer = b; });
       return actx;
     };
 
     const playLaunchSound = (pan = 0) => {
       if (mutedRef.current) return;
       const ac = ensureAudio();
-      if (!ac || !masterGain || !noiseBuffer) return;
-      const t = ac.currentTime;
+      if (!ac || !masterGain || !whistleBuffer) return;
+      const src = ac.createBufferSource();
+      src.buffer = whistleBuffer;
+      src.playbackRate.value = 0.9 + Math.random() * 0.3;
+      const g = ac.createGain();
+      g.gain.value = 0.35;
       const panner = ac.createStereoPanner();
       panner.pan.value = pan;
-      // Whistle = filtered noise + descending osc
-      const src = ac.createBufferSource();
-      src.buffer = noiseBuffer;
-      const bp = ac.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.Q.value = 14;
-      bp.frequency.setValueAtTime(1800, t);
-      bp.frequency.exponentialRampToValueAtTime(500, t + 1.1);
-      const g = ac.createGain();
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.12, t + 0.08);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
-      src.connect(bp).connect(g).connect(panner).connect(masterGain);
-      src.start(t);
-      src.stop(t + 1.3);
+      src.connect(g).connect(panner).connect(masterGain);
+      src.start();
     };
 
-    // More realistic boom: sharp transient + low rumble + crackle tail + reverb
     const playBoomSound = (intensity = 1, pan = 0) => {
       if (mutedRef.current) return;
       const ac = ensureAudio();
-      if (!ac || !masterGain || !noiseBuffer || !convolver) return;
-      const t = ac.currentTime;
+      if (!ac || !masterGain || boomBuffers.length === 0) return;
+      const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = 0.85 + Math.random() * 0.3;
+      const g = ac.createGain();
+      g.gain.value = Math.min(1.2, 0.85 * intensity);
       const panner = ac.createStereoPanner();
       panner.pan.value = pan;
-      const dryBus = ac.createGain();
-      dryBus.gain.value = 1;
-      dryBus.connect(panner).connect(masterGain);
-      const wetSend = ac.createGain();
-      wetSend.gain.value = 0.6;
-      wetSend.connect(convolver);
-
-      // 1. Sharp transient — short burst of full-spectrum noise, very fast attack
-      const transient = ac.createBufferSource();
-      transient.buffer = noiseBuffer;
-      const trHp = ac.createBiquadFilter();
-      trHp.type = "highpass";
-      trHp.frequency.value = 200;
-      const trG = ac.createGain();
-      trG.gain.setValueAtTime(0.0001, t);
-      trG.gain.linearRampToValueAtTime(1.4 * intensity, t + 0.005);
-      trG.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-      transient.connect(trHp).connect(trG);
-      trG.connect(dryBus);
-      trG.connect(wetSend);
-      transient.start(t);
-      transient.stop(t + 0.25);
-
-      // 2. Body rumble — lowpassed noise, slower decay
-      const body = ac.createBufferSource();
-      body.buffer = noiseBuffer;
-      const bodyLp = ac.createBiquadFilter();
-      bodyLp.type = "lowpass";
-      bodyLp.frequency.setValueAtTime(500, t);
-      bodyLp.frequency.exponentialRampToValueAtTime(90, t + 1.0);
-      const bodyG = ac.createGain();
-      bodyG.gain.setValueAtTime(0.0001, t);
-      bodyG.gain.linearRampToValueAtTime(1.0 * intensity, t + 0.03);
-      bodyG.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
-      body.connect(bodyLp).connect(bodyG);
-      bodyG.connect(dryBus);
-      bodyG.connect(wetSend);
-      body.start(t);
-      body.stop(t + 1.5);
-
-      // 3. Sub thump
-      const sub = ac.createOscillator();
-      sub.type = "sine";
-      sub.frequency.setValueAtTime(110, t);
-      sub.frequency.exponentialRampToValueAtTime(35, t + 0.6);
-      const sg = ac.createGain();
-      sg.gain.setValueAtTime(0.0001, t);
-      sg.gain.linearRampToValueAtTime(0.9 * intensity, t + 0.02);
-      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
-      sub.connect(sg).connect(dryBus);
-      sub.start(t);
-      sub.stop(t + 0.9);
-
-      // 4. Crackle tail — sparse high-freq noise bursts
-      for (let i = 0; i < 5; i++) {
-        const dt = 0.2 + Math.random() * 1.2;
-        const c = ac.createBufferSource();
-        c.buffer = noiseBuffer;
-        const hp = ac.createBiquadFilter();
-        hp.type = "highpass";
-        hp.frequency.value = 3000;
-        const cg = ac.createGain();
-        cg.gain.setValueAtTime(0.0001, t + dt);
-        cg.gain.linearRampToValueAtTime(0.08 * intensity, t + dt + 0.005);
-        cg.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.15);
-        c.connect(hp).connect(cg).connect(dryBus);
-        c.start(t + dt);
-        c.stop(t + dt + 0.2);
-      }
+      src.connect(g).connect(panner).connect(masterGain);
+      src.start();
     };
+
 
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
