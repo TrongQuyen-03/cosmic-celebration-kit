@@ -64,13 +64,14 @@ const pickPalette = () => PALETTES[Math.floor(Math.random() * PALETTES.length)];
 type SkyOption = { id: string; label: string; url: string | null };
 const SKIES: SkyOption[] = [
   { id: "night", label: "Đêm sao", url: null },
-  { id: "halong", label: "Vịnh Hạ Long", url: "https://images.unsplash.com/photo-1528127269322-539801943592?w=1920&q=80" },
-  { id: "eiffel", label: "Paris", url: "https://images.unsplash.com/photo-1431274172761-fca41d930114?w=1920&q=80" },
-  { id: "nyc", label: "New York", url: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=1920&q=80" },
-  { id: "sydney", label: "Sydney", url: "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=1920&q=80" },
-  { id: "tokyo", label: "Tokyo", url: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1920&q=80" },
-  { id: "saigon", label: "Sài Gòn", url: "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=1920&q=80" },
+  { id: "halong", label: "Hạ Long đêm", url: "https://images.unsplash.com/photo-1573270689103-d7a4e42b609a?w=1920&q=80" },
+  { id: "eiffel", label: "Paris đêm", url: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1920&q=80" },
+  { id: "nyc", label: "New York đêm", url: "https://images.unsplash.com/photo-1485871981521-5b1fd3805eee?w=1920&q=80" },
+  { id: "sydney", label: "Sydney đêm", url: "https://images.unsplash.com/photo-1506146332389-18140dc7b2fb?w=1920&q=80" },
+  { id: "tokyo", label: "Tokyo đêm", url: "https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=1920&q=80" },
+  { id: "saigon", label: "Sài Gòn đêm", url: "https://images.unsplash.com/photo-1583417267826-aebc4d1542e1?w=1920&q=80" },
 ];
+
 
 function Fireworks() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
