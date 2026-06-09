@@ -678,20 +678,21 @@ function Fireworks() {
               {muted ? "♪ Bật âm" : "♪ Tắt âm"}
             </button>
             <button
+              onClick={() => { salvoRef.current += 18; }}
+              className="rounded-full border border-rose-300/40 bg-gradient-to-r from-rose-500/20 to-fuchsia-500/20 px-5 py-2 text-xs tracking-widest uppercase text-rose-100 backdrop-blur-md transition hover:from-rose-500/30 hover:to-fuchsia-500/30"
+            >
+              ✦ Bắn nhiều
+            </button>
+            <button
               onClick={enterImmersive}
               className="rounded-full border border-amber-300/40 bg-gradient-to-r from-amber-500/20 to-rose-500/20 px-5 py-2 text-xs tracking-widest uppercase text-amber-100 backdrop-blur-md transition hover:from-amber-500/30 hover:to-rose-500/30"
             >
-              ▶ Bắn tự động · Toàn màn hình
+              ▶ Toàn màn hình
             </button>
           </div>
         </>
       )}
-
-      {immersive && (
-        <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.4em] uppercase text-white/30">
-          Nhấn ESC để thoát
-        </div>
-      )}
     </div>
   );
 }
+
