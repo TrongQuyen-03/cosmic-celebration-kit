@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import boom1Asset from "@/assets/audio/boom1.mp3.asset.json";
+import boom2Asset from "@/assets/audio/boom2.mp3.asset.json";
+import boom3Asset from "@/assets/audio/boom3.mp3.asset.json";
+import whistleAsset from "@/assets/audio/whistle.mp3.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -66,12 +70,6 @@ const SKIES: SkyOption[] = [
   { id: "sydney", label: "Sydney đêm", url: "https://images.unsplash.com/photo-1506146332389-18140dc7b2fb?w=1920&q=80" },
   { id: "tokyo", label: "Tokyo đêm", url: "https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=1920&q=80" },
   { id: "saigon", label: "Sài Gòn đêm", url: "https://images.unsplash.com/photo-1583417267826-aebc4d1542e1?w=1920&q=80" },
-  { id: "hongkong", label: "Hong Kong đêm", url: "https://images.unsplash.com/photo-1496545672447-f699b503d270?w=1920&q=80" },
-  { id: "london", label: "London đêm", url: "https://images.unsplash.com/photo-1493514789931-586cb221d7a7?w=1920&q=80" },
-  { id: "milkyway", label: "Dải Ngân Hà", url: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920&q=80" },
-  { id: "stars", label: "Bầu trời sao", url: "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=1920&q=80" },
-  { id: "galaxy", label: "Thiên Hà", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=80" },
-  { id: "aurora", label: "Cực Quang", url: "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1920&q=80" },
 ];
 
 
@@ -132,10 +130,14 @@ function Fireworks() {
       stars.push({ x: Math.random(), y: Math.random() * 0.7, r: Math.random() * 1.2 + 0.2, tw: Math.random() * Math.PI * 2 });
     }
 
-    // ===== Audio: synthesized WebAudio (original) =====
+    // ===== Audio: real recorded firework samples =====
     let actx: AudioContext | null = null;
     let masterGain: GainNode | null = null;
-    let noiseBuffer: AudioBuffer | null = null;
+    const boomBuffers: AudioBuffer[] = [];
+    let whistleBuffer: AudioBuffer | null = null;
+
+    const BOOM_URLS = [boom1Asset.url, boom2Asset.url, boom3Asset.url];
+    const WHISTLE_URL = whistleAsset.url;
 
     const ensureAudio = () => {
       if (actx) return actx;
@@ -143,87 +145,54 @@ function Fireworks() {
       if (!Ctx) return null;
       actx = new Ctx();
       masterGain = actx.createGain();
-      masterGain.gain.value = 0.6;
+      masterGain.gain.value = 0.9;
       masterGain.connect(actx.destination);
-      const len = Math.floor(actx.sampleRate * 1.2);
-      noiseBuffer = actx.createBuffer(1, len, actx.sampleRate);
-      const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+
+      // Load real samples
+      const load = async (url: string): Promise<AudioBuffer | null> => {
+        try {
+          const r = await fetch(url);
+          const ab = await r.arrayBuffer();
+          return await actx!.decodeAudioData(ab);
+        } catch { return null; }
+      };
+      Promise.all(BOOM_URLS.map(load)).then(bufs => {
+        bufs.forEach(b => { if (b) boomBuffers.push(b); });
+      });
+      load(WHISTLE_URL).then(b => { whistleBuffer = b; });
       return actx;
     };
 
     const playLaunchSound = (pan = 0) => {
       if (mutedRef.current) return;
       const ac = ensureAudio();
-      if (!ac || !masterGain) return;
-      const t0 = ac.currentTime;
-      const osc = ac.createOscillator();
+      if (!ac || !masterGain || !whistleBuffer) return;
+      const src = ac.createBufferSource();
+      src.buffer = whistleBuffer;
+      src.playbackRate.value = 0.9 + Math.random() * 0.3;
       const g = ac.createGain();
+      g.gain.value = 0.35;
       const panner = ac.createStereoPanner();
       panner.pan.value = pan;
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(400, t0);
-      osc.frequency.exponentialRampToValueAtTime(1600, t0 + 0.9);
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.05);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.0);
-      osc.connect(g).connect(panner).connect(masterGain);
-      osc.start(t0);
-      osc.stop(t0 + 1.05);
+      src.connect(g).connect(panner).connect(masterGain);
+      src.start();
     };
 
     const playBoomSound = (intensity = 1, pan = 0) => {
       if (mutedRef.current) return;
       const ac = ensureAudio();
-      if (!ac || !masterGain || !noiseBuffer) return;
-      const t0 = ac.currentTime;
+      if (!ac || !masterGain || boomBuffers.length === 0) return;
+      const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = 0.85 + Math.random() * 0.3;
+      const g = ac.createGain();
+      g.gain.value = Math.min(1.2, 0.85 * intensity);
       const panner = ac.createStereoPanner();
       panner.pan.value = pan;
-
-      // Low body thump
-      const osc = ac.createOscillator();
-      const og = ac.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(120, t0);
-      osc.frequency.exponentialRampToValueAtTime(40, t0 + 0.5);
-      og.gain.setValueAtTime(0.0001, t0);
-      og.gain.exponentialRampToValueAtTime(0.9 * intensity, t0 + 0.02);
-      og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.7);
-      osc.connect(og).connect(panner);
-      osc.start(t0); osc.stop(t0 + 0.75);
-
-      // Noise burst (the crack)
-      const noise = ac.createBufferSource();
-      noise.buffer = noiseBuffer;
-      const nf = ac.createBiquadFilter();
-      nf.type = "lowpass";
-      nf.frequency.setValueAtTime(2200, t0);
-      nf.frequency.exponentialRampToValueAtTime(500, t0 + 0.6);
-      const ng = ac.createGain();
-      ng.gain.setValueAtTime(0.0001, t0);
-      ng.gain.exponentialRampToValueAtTime(0.6 * intensity, t0 + 0.015);
-      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
-      noise.connect(nf).connect(ng).connect(panner);
-      noise.start(t0); noise.stop(t0 + 1.0);
-
-      // Crackle tail
-      const crackle = ac.createBufferSource();
-      crackle.buffer = noiseBuffer;
-      const cf = ac.createBiquadFilter();
-      cf.type = "highpass";
-      cf.frequency.value = 3000;
-      const cg = ac.createGain();
-      cg.gain.setValueAtTime(0.0001, t0 + 0.1);
-      cg.gain.exponentialRampToValueAtTime(0.18 * intensity, t0 + 0.2);
-      cg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1);
-      crackle.connect(cf).connect(cg).connect(panner);
-      crackle.start(t0 + 0.05); crackle.stop(t0 + 1.15);
-
-      panner.connect(masterGain);
+      src.connect(g).connect(panner).connect(masterGain);
+      src.start();
     };
-
-
-
 
 
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
