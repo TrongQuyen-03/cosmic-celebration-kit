@@ -169,51 +169,25 @@ function Fireworks() {
       return actx;
     };
 
-    const playLaunchSound = (pan = 0) => {
+    // No separate launch sound — each firework gets exactly one sound: the boom at explosion.
+    const playLaunchSound = (_pan = 0) => { void _pan; };
+
+    const playBoomSound = (intensity = 1, pan = 0) => {
       if (mutedRef.current) return;
       const ac = ensureAudio();
-      if (!ac || !masterGain || !whistleBuffer) return;
+      if (!ac || !masterGain || boomBuffers.length === 0) return;
+      const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
       const src = ac.createBufferSource();
-      src.buffer = whistleBuffer;
-      src.playbackRate.value = 0.95 + Math.random() * 0.35;
+      src.buffer = buf;
+      src.playbackRate.value = 0.88 + Math.random() * 0.24;
       const g = ac.createGain();
-      g.gain.value = 0.28;
+      g.gain.value = Math.min(1.3, 0.95 * intensity);
       const panner = ac.createStereoPanner();
       panner.pan.value = pan;
       src.connect(g).connect(panner).connect(masterGain);
       src.start();
     };
 
-    const playOneBoom = (when: number, intensity: number, pan: number, rateBias = 1) => {
-      if (!actx || !masterGain || boomBuffers.length === 0) return;
-      const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
-      const src = actx.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.value = (0.82 + Math.random() * 0.32) * rateBias;
-      const g = actx.createGain();
-      g.gain.value = Math.min(1.4, 0.95 * intensity);
-      const panner = actx.createStereoPanner();
-      panner.pan.value = pan;
-      src.connect(g).connect(panner).connect(masterGain);
-      src.start(when);
-    };
-
-    const playBoomSound = (intensity = 1, pan = 0) => {
-      if (mutedRef.current) return;
-      const ac = ensureAudio();
-      if (!ac || boomBuffers.length === 0) return;
-      const now = ac.currentTime;
-      // Main bang
-      playOneBoom(now, intensity, pan, 0.9 + Math.random() * 0.1);
-      // Layered low echo (slightly delayed, lower pitch) — gives depth like real fireworks
-      if (Math.random() < 0.75) {
-        playOneBoom(now + 0.04 + Math.random() * 0.06, intensity * 0.65, pan * 0.7, 0.7 + Math.random() * 0.1);
-      }
-      // Crackle tail (small sharp pop)
-      if (Math.random() < 0.55) {
-        playOneBoom(now + 0.18 + Math.random() * 0.18, intensity * 0.35, pan, 1.4 + Math.random() * 0.3);
-      }
-    };
 
 
 
