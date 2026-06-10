@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import boom1Asset from "@/assets/audio/boom1.mp3.asset.json";
 import boom2Asset from "@/assets/audio/boom2.mp3.asset.json";
 import boom3Asset from "@/assets/audio/boom3.mp3.asset.json";
+import boom4Asset from "@/assets/audio/boom4.mp3.asset.json";
 import whistleAsset from "@/assets/audio/whistle.mp3.asset.json";
 
 export const Route = createFileRoute("/")({
@@ -70,6 +71,12 @@ const SKIES: SkyOption[] = [
   { id: "sydney", label: "Sydney đêm", url: "https://images.unsplash.com/photo-1506146332389-18140dc7b2fb?w=1920&q=80" },
   { id: "tokyo", label: "Tokyo đêm", url: "https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=1920&q=80" },
   { id: "saigon", label: "Sài Gòn đêm", url: "https://images.unsplash.com/photo-1583417267826-aebc4d1542e1?w=1920&q=80" },
+  { id: "hongkong", label: "Hong Kong đêm", url: "https://images.unsplash.com/photo-1496545672447-f699b503d270?w=1920&q=80" },
+  { id: "london", label: "London đêm", url: "https://images.unsplash.com/photo-1493514789931-586cb221d7a7?w=1920&q=80" },
+  { id: "milkyway", label: "Dải Ngân Hà", url: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920&q=80" },
+  { id: "stars", label: "Bầu trời sao", url: "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=1920&q=80" },
+  { id: "galaxy", label: "Thiên Hà", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=80" },
+  { id: "aurora", label: "Cực Quang", url: "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1920&q=80" },
 ];
 
 
@@ -136,7 +143,7 @@ function Fireworks() {
     const boomBuffers: AudioBuffer[] = [];
     let whistleBuffer: AudioBuffer | null = null;
 
-    const BOOM_URLS = [boom1Asset.url, boom2Asset.url, boom3Asset.url];
+    const BOOM_URLS = [boom1Asset.url, boom2Asset.url, boom3Asset.url, boom4Asset.url];
     const WHISTLE_URL = whistleAsset.url;
 
     const ensureAudio = () => {
@@ -145,10 +152,9 @@ function Fireworks() {
       if (!Ctx) return null;
       actx = new Ctx();
       masterGain = actx.createGain();
-      masterGain.gain.value = 0.9;
+      masterGain.gain.value = 1.0;
       masterGain.connect(actx.destination);
 
-      // Load real samples
       const load = async (url: string): Promise<AudioBuffer | null> => {
         try {
           const r = await fetch(url);
@@ -169,30 +175,47 @@ function Fireworks() {
       if (!ac || !masterGain || !whistleBuffer) return;
       const src = ac.createBufferSource();
       src.buffer = whistleBuffer;
-      src.playbackRate.value = 0.9 + Math.random() * 0.3;
+      src.playbackRate.value = 0.95 + Math.random() * 0.35;
       const g = ac.createGain();
-      g.gain.value = 0.35;
+      g.gain.value = 0.28;
       const panner = ac.createStereoPanner();
       panner.pan.value = pan;
       src.connect(g).connect(panner).connect(masterGain);
       src.start();
     };
 
+    const playOneBoom = (when: number, intensity: number, pan: number, rateBias = 1) => {
+      if (!actx || !masterGain || boomBuffers.length === 0) return;
+      const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
+      const src = actx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = (0.82 + Math.random() * 0.32) * rateBias;
+      const g = actx.createGain();
+      g.gain.value = Math.min(1.4, 0.95 * intensity);
+      const panner = actx.createStereoPanner();
+      panner.pan.value = pan;
+      src.connect(g).connect(panner).connect(masterGain);
+      src.start(when);
+    };
+
     const playBoomSound = (intensity = 1, pan = 0) => {
       if (mutedRef.current) return;
       const ac = ensureAudio();
-      if (!ac || !masterGain || boomBuffers.length === 0) return;
-      const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
-      const src = ac.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.value = 0.85 + Math.random() * 0.3;
-      const g = ac.createGain();
-      g.gain.value = Math.min(1.2, 0.85 * intensity);
-      const panner = ac.createStereoPanner();
-      panner.pan.value = pan;
-      src.connect(g).connect(panner).connect(masterGain);
-      src.start();
+      if (!ac || boomBuffers.length === 0) return;
+      const now = ac.currentTime;
+      // Main bang
+      playOneBoom(now, intensity, pan, 0.9 + Math.random() * 0.1);
+      // Layered low echo (slightly delayed, lower pitch) — gives depth like real fireworks
+      if (Math.random() < 0.75) {
+        playOneBoom(now + 0.04 + Math.random() * 0.06, intensity * 0.65, pan * 0.7, 0.7 + Math.random() * 0.1);
+      }
+      // Crackle tail (small sharp pop)
+      if (Math.random() < 0.55) {
+        playOneBoom(now + 0.18 + Math.random() * 0.18, intensity * 0.35, pan, 1.4 + Math.random() * 0.3);
+      }
     };
+
+
 
 
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
