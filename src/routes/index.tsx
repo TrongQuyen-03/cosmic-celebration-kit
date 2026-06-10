@@ -71,6 +71,12 @@ const SKIES: SkyOption[] = [
   { id: "sydney", label: "Sydney đêm", url: "https://images.unsplash.com/photo-1506146332389-18140dc7b2fb?w=1920&q=80" },
   { id: "tokyo", label: "Tokyo đêm", url: "https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=1920&q=80" },
   { id: "saigon", label: "Sài Gòn đêm", url: "https://images.unsplash.com/photo-1583417267826-aebc4d1542e1?w=1920&q=80" },
+  { id: "hongkong", label: "Hong Kong đêm", url: "https://images.unsplash.com/photo-1496545672447-f699b503d270?w=1920&q=80" },
+  { id: "london", label: "London đêm", url: "https://images.unsplash.com/photo-1493514789931-586cb221d7a7?w=1920&q=80" },
+  { id: "milkyway", label: "Dải Ngân Hà", url: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920&q=80" },
+  { id: "stars", label: "Bầu trời sao", url: "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=1920&q=80" },
+  { id: "galaxy", label: "Thiên Hà", url: "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=80" },
+  { id: "aurora", label: "Cực Quang", url: "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1920&q=80" },
 ];
 
 
