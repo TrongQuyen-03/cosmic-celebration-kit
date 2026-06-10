@@ -137,14 +137,10 @@ function Fireworks() {
       stars.push({ x: Math.random(), y: Math.random() * 0.7, r: Math.random() * 1.2 + 0.2, tw: Math.random() * Math.PI * 2 });
     }
 
-    // ===== Audio: real recorded firework samples =====
+    // ===== Audio: synthesized WebAudio (original) =====
     let actx: AudioContext | null = null;
     let masterGain: GainNode | null = null;
-    const boomBuffers: AudioBuffer[] = [];
-    let whistleBuffer: AudioBuffer | null = null;
-
-    const BOOM_URLS = [boom1Asset.url, boom2Asset.url, boom3Asset.url, boom4Asset.url];
-    const WHISTLE_URL = whistleAsset.url;
+    let noiseBuffer: AudioBuffer | null = null;
 
     const ensureAudio = () => {
       if (actx) return actx;
@@ -152,40 +148,83 @@ function Fireworks() {
       if (!Ctx) return null;
       actx = new Ctx();
       masterGain = actx.createGain();
-      masterGain.gain.value = 1.0;
+      masterGain.gain.value = 0.6;
       masterGain.connect(actx.destination);
-
-      const load = async (url: string): Promise<AudioBuffer | null> => {
-        try {
-          const r = await fetch(url);
-          const ab = await r.arrayBuffer();
-          return await actx!.decodeAudioData(ab);
-        } catch { return null; }
-      };
-      Promise.all(BOOM_URLS.map(load)).then(bufs => {
-        bufs.forEach(b => { if (b) boomBuffers.push(b); });
-      });
-      load(WHISTLE_URL).then(b => { whistleBuffer = b; });
+      const len = Math.floor(actx.sampleRate * 1.2);
+      noiseBuffer = actx.createBuffer(1, len, actx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
       return actx;
     };
 
-    // No separate launch sound — each firework gets exactly one sound: the boom at explosion.
-    const playLaunchSound = (_pan = 0) => { void _pan; };
+    const playLaunchSound = (pan = 0) => {
+      if (mutedRef.current) return;
+      const ac = ensureAudio();
+      if (!ac || !masterGain) return;
+      const t0 = ac.currentTime;
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      const panner = ac.createStereoPanner();
+      panner.pan.value = pan;
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(400, t0);
+      osc.frequency.exponentialRampToValueAtTime(1600, t0 + 0.9);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.0);
+      osc.connect(g).connect(panner).connect(masterGain);
+      osc.start(t0);
+      osc.stop(t0 + 1.05);
+    };
 
     const playBoomSound = (intensity = 1, pan = 0) => {
       if (mutedRef.current) return;
       const ac = ensureAudio();
-      if (!ac || !masterGain || boomBuffers.length === 0) return;
-      const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
-      const src = ac.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.value = 0.88 + Math.random() * 0.24;
-      const g = ac.createGain();
-      g.gain.value = Math.min(1.3, 0.95 * intensity);
+      if (!ac || !masterGain || !noiseBuffer) return;
+      const t0 = ac.currentTime;
       const panner = ac.createStereoPanner();
       panner.pan.value = pan;
-      src.connect(g).connect(panner).connect(masterGain);
-      src.start();
+
+      // Low body thump
+      const osc = ac.createOscillator();
+      const og = ac.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(120, t0);
+      osc.frequency.exponentialRampToValueAtTime(40, t0 + 0.5);
+      og.gain.setValueAtTime(0.0001, t0);
+      og.gain.exponentialRampToValueAtTime(0.9 * intensity, t0 + 0.02);
+      og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.7);
+      osc.connect(og).connect(panner);
+      osc.start(t0); osc.stop(t0 + 0.75);
+
+      // Noise burst (the crack)
+      const noise = ac.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const nf = ac.createBiquadFilter();
+      nf.type = "lowpass";
+      nf.frequency.setValueAtTime(2200, t0);
+      nf.frequency.exponentialRampToValueAtTime(500, t0 + 0.6);
+      const ng = ac.createGain();
+      ng.gain.setValueAtTime(0.0001, t0);
+      ng.gain.exponentialRampToValueAtTime(0.6 * intensity, t0 + 0.015);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
+      noise.connect(nf).connect(ng).connect(panner);
+      noise.start(t0); noise.stop(t0 + 1.0);
+
+      // Crackle tail
+      const crackle = ac.createBufferSource();
+      crackle.buffer = noiseBuffer;
+      const cf = ac.createBiquadFilter();
+      cf.type = "highpass";
+      cf.frequency.value = 3000;
+      const cg = ac.createGain();
+      cg.gain.setValueAtTime(0.0001, t0 + 0.1);
+      cg.gain.exponentialRampToValueAtTime(0.18 * intensity, t0 + 0.2);
+      cg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1);
+      crackle.connect(cf).connect(cg).connect(panner);
+      crackle.start(t0 + 0.05); crackle.stop(t0 + 1.15);
+
+      panner.connect(masterGain);
     };
 
 
