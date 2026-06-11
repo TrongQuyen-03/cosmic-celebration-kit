@@ -137,10 +137,12 @@ function Fireworks() {
     let actx: AudioContext | null = null;
     let masterGain: GainNode | null = null;
     const boomBuffers: AudioBuffer[] = [];
+    let crackleBuffer: AudioBuffer | null = null;
     let whistleBuffer: AudioBuffer | null = null;
 
-    const BOOM_URLS = [boom1Asset.url, boom2Asset.url, boom3Asset.url];
+    const BOOM_URLS = [boom1Asset.url, boom2Asset.url, boom3Asset.url, boom4Asset.url, boom5Asset.url];
     const WHISTLE_URL = whistleAsset.url;
+    const CRACKLE_URL = crackleAsset.url;
 
     const ensureAudio = () => {
       if (actx) return actx;
@@ -148,10 +150,16 @@ function Fireworks() {
       if (!Ctx) return null;
       actx = new Ctx();
       masterGain = actx.createGain();
-      masterGain.gain.value = 0.9;
-      masterGain.connect(actx.destination);
+      masterGain.gain.value = 1.0;
+      // gentle master compression for punch
+      const comp = actx.createDynamicsCompressor();
+      comp.threshold.value = -18;
+      comp.knee.value = 24;
+      comp.ratio.value = 4;
+      comp.attack.value = 0.003;
+      comp.release.value = 0.25;
+      masterGain.connect(comp).connect(actx.destination);
 
-      // Load real samples
       const load = async (url: string): Promise<AudioBuffer | null> => {
         try {
           const r = await fetch(url);
@@ -163,6 +171,7 @@ function Fireworks() {
         bufs.forEach(b => { if (b) boomBuffers.push(b); });
       });
       load(WHISTLE_URL).then(b => { whistleBuffer = b; });
+      load(CRACKLE_URL).then(b => { crackleBuffer = b; });
       return actx;
     };
 
@@ -174,7 +183,7 @@ function Fireworks() {
       src.buffer = whistleBuffer;
       src.playbackRate.value = 0.9 + Math.random() * 0.3;
       const g = ac.createGain();
-      g.gain.value = 0.35;
+      g.gain.value = 0.25;
       const panner = ac.createStereoPanner();
       panner.pan.value = pan;
       src.connect(g).connect(panner).connect(masterGain);
@@ -185,16 +194,58 @@ function Fireworks() {
       if (mutedRef.current) return;
       const ac = ensureAudio();
       if (!ac || !masterGain || boomBuffers.length === 0) return;
+      const now = ac.currentTime;
+      const panner = ac.createStereoPanner();
+      panner.pan.value = pan;
+      panner.connect(masterGain);
+
+      // 1) Main boom sample
       const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
       const src = ac.createBufferSource();
       src.buffer = buf;
-      src.playbackRate.value = 0.85 + Math.random() * 0.3;
+      src.playbackRate.value = 0.78 + Math.random() * 0.25;
       const g = ac.createGain();
-      g.gain.value = Math.min(1.2, 0.85 * intensity);
-      const panner = ac.createStereoPanner();
-      panner.pan.value = pan;
-      src.connect(g).connect(panner).connect(masterGain);
-      src.start();
+      g.gain.value = Math.min(1.4, 1.0 * intensity);
+      src.connect(g).connect(panner);
+      src.start(now);
+
+      // 2) Sub thump for chest-punch low end
+      const osc = ac.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(38, now + 0.45);
+      const og = ac.createGain();
+      og.gain.setValueAtTime(0.0001, now);
+      og.gain.exponentialRampToValueAtTime(0.9 * intensity, now + 0.012);
+      og.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+      osc.connect(og).connect(panner);
+      osc.start(now);
+      osc.stop(now + 0.7);
+
+      // 3) Crackle tail (real recorded crackle), delayed slightly
+      if (crackleBuffer && Math.random() < 0.85) {
+        const cs = ac.createBufferSource();
+        cs.buffer = crackleBuffer;
+        cs.playbackRate.value = 0.9 + Math.random() * 0.4;
+        const cg = ac.createGain();
+        cg.gain.value = 0.35 * intensity;
+        // fade out
+        cg.gain.setValueAtTime(0.35 * intensity, now + 0.15);
+        cg.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+        cs.connect(cg).connect(panner);
+        cs.start(now + 0.12 + Math.random() * 0.08);
+      }
+
+      // 4) Distant echo for depth
+      const delay = ac.createDelay();
+      delay.delayTime.value = 0.18 + Math.random() * 0.12;
+      const eg = ac.createGain();
+      eg.gain.value = 0.25;
+      const src2 = ac.createBufferSource();
+      src2.buffer = buf;
+      src2.playbackRate.value = src.playbackRate.value * 0.92;
+      src2.connect(eg).connect(delay).connect(panner);
+      src2.start(now + 0.05);
     };
 
 
