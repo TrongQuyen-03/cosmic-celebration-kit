@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import boom1Asset from "@/assets/audio/boom1.mp3.asset.json";
-import boom2Asset from "@/assets/audio/boom2.mp3.asset.json";
-import boom3Asset from "@/assets/audio/boom3.mp3.asset.json";
+import boom1Asset from "@/assets/audio/boom-real-1.mp3.asset.json";
+import boom2Asset from "@/assets/audio/boom-real-2.mp3.asset.json";
+import boom3Asset from "@/assets/audio/boom-real-3.mp3.asset.json";
+import boom4Asset from "@/assets/audio/boom-real-4.mp3.asset.json";
+import boom5Asset from "@/assets/audio/boom-real-5.mp3.asset.json";
+import crackleAsset from "@/assets/audio/crackle-real.mp3.asset.json";
 import whistleAsset from "@/assets/audio/whistle.mp3.asset.json";
 
 export const Route = createFileRoute("/")({
