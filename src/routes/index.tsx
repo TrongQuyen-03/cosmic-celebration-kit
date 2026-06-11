@@ -150,14 +150,14 @@ function Fireworks() {
       if (!Ctx) return null;
       actx = new Ctx();
       masterGain = actx.createGain();
-      masterGain.gain.value = 1.0;
-      // gentle master compression for punch
+      masterGain.gain.value = 2.8;
+      // heavy master compression for huge punch
       const comp = actx.createDynamicsCompressor();
-      comp.threshold.value = -18;
-      comp.knee.value = 24;
-      comp.ratio.value = 4;
-      comp.attack.value = 0.003;
-      comp.release.value = 0.25;
+      comp.threshold.value = -10;
+      comp.knee.value = 18;
+      comp.ratio.value = 8;
+      comp.attack.value = 0.002;
+      comp.release.value = 0.2;
       masterGain.connect(comp).connect(actx.destination);
 
       const load = async (url: string): Promise<AudioBuffer | null> => {
