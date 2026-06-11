@@ -199,53 +199,75 @@ function Fireworks() {
       panner.pan.value = pan;
       panner.connect(masterGain);
 
-      // 1) Main boom sample
+      // 1) Main boom sample - LOUD
       const buf = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
       const src = ac.createBufferSource();
       src.buffer = buf;
-      src.playbackRate.value = 0.78 + Math.random() * 0.25;
+      src.playbackRate.value = 0.7 + Math.random() * 0.2;
       const g = ac.createGain();
-      g.gain.value = Math.min(1.4, 1.0 * intensity);
+      g.gain.value = Math.min(3.2, 2.4 * intensity);
       src.connect(g).connect(panner);
       src.start(now);
 
-      // 2) Sub thump for chest-punch low end
+      // 1b) Second boom layer for thickness
+      const buf2 = boomBuffers[Math.floor(Math.random() * boomBuffers.length)];
+      const src1b = ac.createBufferSource();
+      src1b.buffer = buf2;
+      src1b.playbackRate.value = 0.6 + Math.random() * 0.15;
+      const g1b = ac.createGain();
+      g1b.gain.value = 1.6 * intensity;
+      src1b.connect(g1b).connect(panner);
+      src1b.start(now + 0.008);
+
+      // 2) Sub thump - huge chest punch
       const osc = ac.createOscillator();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(120, now);
-      osc.frequency.exponentialRampToValueAtTime(38, now + 0.45);
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(28, now + 0.55);
       const og = ac.createGain();
       og.gain.setValueAtTime(0.0001, now);
-      og.gain.exponentialRampToValueAtTime(0.9 * intensity, now + 0.012);
-      og.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+      og.gain.exponentialRampToValueAtTime(2.2 * intensity, now + 0.008);
+      og.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
       osc.connect(og).connect(panner);
       osc.start(now);
-      osc.stop(now + 0.7);
+      osc.stop(now + 0.85);
 
-      // 3) Crackle tail (real recorded crackle), delayed slightly
-      if (crackleBuffer && Math.random() < 0.85) {
+      // 2b) Second sub layer (triangle for body)
+      const osc2 = ac.createOscillator();
+      osc2.type = "triangle";
+      osc2.frequency.setValueAtTime(75, now);
+      osc2.frequency.exponentialRampToValueAtTime(40, now + 0.4);
+      const og2 = ac.createGain();
+      og2.gain.setValueAtTime(0.0001, now);
+      og2.gain.exponentialRampToValueAtTime(1.4 * intensity, now + 0.01);
+      og2.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+      osc2.connect(og2).connect(panner);
+      osc2.start(now);
+      osc2.stop(now + 0.55);
+
+      // 3) Crackle tail
+      if (crackleBuffer && Math.random() < 0.9) {
         const cs = ac.createBufferSource();
         cs.buffer = crackleBuffer;
         cs.playbackRate.value = 0.9 + Math.random() * 0.4;
         const cg = ac.createGain();
-        cg.gain.value = 0.35 * intensity;
-        // fade out
-        cg.gain.setValueAtTime(0.35 * intensity, now + 0.15);
-        cg.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+        cg.gain.value = 0.7 * intensity;
+        cg.gain.setValueAtTime(0.7 * intensity, now + 0.15);
+        cg.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
         cs.connect(cg).connect(panner);
         cs.start(now + 0.12 + Math.random() * 0.08);
       }
 
       // 4) Distant echo for depth
       const delay = ac.createDelay();
-      delay.delayTime.value = 0.18 + Math.random() * 0.12;
+      delay.delayTime.value = 0.22 + Math.random() * 0.15;
       const eg = ac.createGain();
-      eg.gain.value = 0.25;
-      const src2 = ac.createBufferSource();
-      src2.buffer = buf;
-      src2.playbackRate.value = src.playbackRate.value * 0.92;
-      src2.connect(eg).connect(delay).connect(panner);
-      src2.start(now + 0.05);
+      eg.gain.value = 0.6;
+      const src2e = ac.createBufferSource();
+      src2e.buffer = buf;
+      src2e.playbackRate.value = src.playbackRate.value * 0.88;
+      src2e.connect(eg).connect(delay).connect(panner);
+      src2e.start(now + 0.05);
     };
 
 
